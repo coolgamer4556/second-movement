@@ -50,6 +50,28 @@ static void tomato_start(tomato_state_t *state) {
     watch_set_indicator(WATCH_INDICATOR_BELL);
 }
 
+static void tomato_pause_timer(tomato_state_t *state) {
+    state->mode = tomato_pause;
+    movement_cancel_background_task_for_face(state->watch_face_index);
+    watch_clear_indicator(WATCH_INDICATOR_BELL);
+
+    uint32_t now = movement_get_utc_timestamp();
+    if (state->target_ts > now) {
+        state->time_left = state->target_ts - now;
+    } else {
+        state->time_left = 0;
+    }
+}
+
+static void tomato_resume_timer(tomato_state_t *state) {
+    state->mode = tomato_run;
+    state->now_ts = movement_get_utc_timestamp();
+    state->target_ts = state->now_ts + state->time_left;
+    watch_date_time_t target_dt = watch_utility_date_time_from_unix_time(state->target_ts, 0);
+    movement_schedule_background_task_for_face(state->watch_face_index, target_dt);
+    watch_set_indicator(WATCH_INDICATOR_BELL);
+}
+
 static void tomato_draw(tomato_state_t *state) {
     char buf[16];
 
@@ -75,6 +97,11 @@ static void tomato_draw(tomato_state_t *state) {
             min = result.quot;
             sec = result.rem;
             break;
+        case tomato_pause:
+            result = div(state->time_left, 60);
+            min = result.quot;
+            sec = result.rem;
+            break;
         case tomato_ready:
             min = get_length(state);
             sec = 0;
@@ -89,6 +116,7 @@ static void tomato_draw(tomato_state_t *state) {
 
 static void tomato_reset(tomato_state_t *state) {
     state->mode = tomato_ready;
+    state->time_left = 0;
     movement_cancel_background_task_for_face(state->watch_face_index);
     watch_clear_indicator(WATCH_INDICATOR_BELL);
 }
@@ -153,7 +181,10 @@ bool tomato_face_loop(movement_event_t event, void *context) {
         case EVENT_ALARM_BUTTON_UP:
             switch(state->mode) {
                 case tomato_run:
-                    tomato_reset(state);
+                    tomato_pause_timer(state);
+                    break;
+                case tomato_pause:
+                    tomato_resume_timer(state);
                     break;
                 case tomato_ready:
                     tomato_start(state);
@@ -162,7 +193,12 @@ bool tomato_face_loop(movement_event_t event, void *context) {
             tomato_draw(state);
             break;
         case EVENT_ALARM_LONG_PRESS:
-            state->done_count = 0;
+            if (state->mode == tomato_run || state->mode == tomato_pause) {
+                tomato_reset(state);
+            } else {
+                state->done_count = 0;
+            }
+            tomato_draw(state);
             break;
         case EVENT_BACKGROUND_TASK:
             tomato_ring(state);
