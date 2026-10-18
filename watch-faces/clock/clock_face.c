@@ -112,7 +112,12 @@ static void clock_toggle_time_signal(clock_state_t *state) {
 
 static void clock_display_all(watch_date_time_t date_time) {
     char buf[8 + 1];
+    char month_buf[2 + 1];
 
+    // Format top-left: Month (e.g., "10" or " 9" using %2d, or "%02d" for "09")
+    snprintf(month_buf, sizeof(month_buf), "%2d", date_time.unit.month);
+
+    // Format remaining digits: Day (top-right), Hour, Minute, Second (bottom)
     snprintf(
         buf,
         sizeof(buf),
@@ -123,13 +128,10 @@ static void clock_display_all(watch_date_time_t date_time) {
         date_time.unit.second
     );
 
-    char month_buf[4];
-    snprintf(month_buf, sizeof(month_buf), "%2d", date_time.unit.month);
     watch_display_text(WATCH_POSITION_TOP_LEFT, month_buf);
     watch_display_text(WATCH_POSITION_TOP_RIGHT, buf);
     watch_display_text(WATCH_POSITION_BOTTOM, buf + 2);
 }
-
 static bool clock_display_some(watch_date_time_t current, watch_date_time_t previous) {
     if ((current.reg >> 6) == (previous.reg >> 6)) {
         // everything before seconds is the same, don't waste cycles setting those segments.
