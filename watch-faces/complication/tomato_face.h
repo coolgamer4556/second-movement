@@ -50,7 +50,7 @@
 typedef enum {
     tomato_ready,
     tomato_run,
-    tomatoe_pause, //<--Added Pause
+    tomato_pause,   // <-- Added pause state
 } tomato_mode;
 
 typedef enum {
@@ -61,6 +61,7 @@ typedef enum {
 typedef struct {
     uint32_t target_ts;
     uint32_t now_ts;
+    uint32_t remaining_seconds; // <-- Stores remaining seconds when paused
     tomato_mode mode;
     tomato_kind kind;
     uint8_t done_count;
