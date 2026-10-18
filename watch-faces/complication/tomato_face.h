@@ -50,6 +50,7 @@
 typedef enum {
     tomato_ready,
     tomato_run,
+    tomatoe_pause, //<--Added Pause
 } tomato_mode;
 
 typedef enum {
