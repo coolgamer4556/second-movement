@@ -123,7 +123,9 @@ static void clock_display_all(watch_date_time_t date_time) {
         date_time.unit.second
     );
 
-    watch_display_text_with_fallback(WATCH_POSITION_TOP_LEFT, watch_utility_get_long_weekday(date_time), watch_utility_get_weekday(date_time));
+    char month_buf[4];
+    snprintf(month_buf, sizeof(month_buf), "%2d", date_time.unit.month);
+    watch_display_text(WATCH_POSITION_TOP_LEFT, month_buf);
     watch_display_text(WATCH_POSITION_TOP_RIGHT, buf);
     watch_display_text(WATCH_POSITION_BOTTOM, buf + 2);
 }
