@@ -7,7 +7,7 @@ const watch_face_t watch_faces[] = {
     // --- PRIMARY FACES (Short press MODE) ---
     clock_face,          // 1. Time / Date
     stopwatch_face,      // 2. Stopwatch (standard 1-hr)
-    pomodoro_face,       // 3. Pomodoro Timer
+    tomato_face,         // 3. Pomodoro Timer (tomato_face)
 
     // --- SECONDARY FACES (Long press MODE from Clock) ---
     set_time_face,       // 1. Adjust time/date
