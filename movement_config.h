@@ -5,7 +5,7 @@
 
 // PRIMARY FACES (Cycled with a short press of the MODE button)
 #define PRIMARY_FACES(F) \
-  F(simple_clock) \
+  F(clock) \
   F(fast_stopwatch) \
   F(tomato) \
 
