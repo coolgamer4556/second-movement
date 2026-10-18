@@ -114,8 +114,8 @@ static void clock_display_all(watch_date_time_t date_time) {
     char buf[8 + 1];
     char month_buf[2 + 1];
 
-    // Format top-left: Month (e.g., "10" or " 9" using %2d, or "%02d" for "09")
-    snprintf(month_buf, sizeof(month_buf), "%2d", date_time.unit.month);
+    // Format top-left: Month with leading zero (e.g., "09" or "10")
+    snprintf(month_buf, sizeof(month_buf), "%02d", date_time.unit.month);
 
     // Format remaining digits: Day (top-right), Hour, Minute, Second (bottom)
     snprintf(
@@ -132,6 +132,7 @@ static void clock_display_all(watch_date_time_t date_time) {
     watch_display_text(WATCH_POSITION_TOP_RIGHT, buf);
     watch_display_text(WATCH_POSITION_BOTTOM, buf + 2);
 }
+
 static bool clock_display_some(watch_date_time_t current, watch_date_time_t previous) {
     if ((current.reg >> 6) == (previous.reg >> 6)) {
         // everything before seconds is the same, don't waste cycles setting those segments.
@@ -180,7 +181,12 @@ static void clock_display_low_energy(watch_date_time_t date_time) {
         clock_indicate_pm(date_time);
         date_time = clock_24h_to_12h(date_time);
     }
+
     char buf[8 + 1];
+    char month_buf[2 + 1];
+
+    // Format top-left: Month with leading zero (e.g., "09" or "10")
+    snprintf(month_buf, sizeof(month_buf), "%02d", date_time.unit.month);
 
     snprintf(
         buf,
@@ -191,7 +197,7 @@ static void clock_display_low_energy(watch_date_time_t date_time) {
         date_time.unit.minute
     );
 
-    watch_display_text_with_fallback(WATCH_POSITION_TOP_LEFT, watch_utility_get_long_weekday(date_time), watch_utility_get_weekday(date_time));
+    watch_display_text(WATCH_POSITION_TOP_LEFT, month_buf);
     watch_display_text(WATCH_POSITION_TOP_RIGHT, buf);
     watch_display_text(WATCH_POSITION_BOTTOM, buf + 2);
 }
@@ -260,8 +266,6 @@ bool clock_face_loop(movement_event_t event, void *context) {
             clock_toggle_time_signal(state);
             break;
         case EVENT_BACKGROUND_TASK:
-            // uncomment this line to snap back to the clock face when the hour signal sounds:
-            // movement_move_to_face(state->watch_face_index);
             movement_play_signal();
             break;
         default:
