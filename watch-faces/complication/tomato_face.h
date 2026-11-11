@@ -1,6 +1,6 @@
 /*
  * MIT License
- *
+ * Yo wassup
  * Copyright (c) 2026 Wesley Ellis
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
