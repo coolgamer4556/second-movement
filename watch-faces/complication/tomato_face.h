@@ -25,45 +25,28 @@
 #ifndef TOMATO_FACE_H_
 #define TOMATO_FACE_H_
 
-/*
- * TOMATO TIMER face
- *
- * Add a "tomato" timer watch face that alternates between 25 and 5 minute
- * timers as in the Pomodoro Technique.
- *  https://en.wikipedia.org/wiki/Pomodoro_Technique
- *
- * The top right letter shows mode (f for focus or b for break).
- * The bottom right shows how many focus sessions you've completed.
- * (You can reset the count with a long press of alarm)
- *
- * When you show up and it says 25 minutes, you can start it (alarm),
- *  switch to 5 minute (light) mode or leave (mode).
- *
- * When it's running you can reset (alarm), or leave (mode).
- *
- * When it's done, we beep and go back to step 1, changing switching
- *  mode from focus to break (or break to focus)
- */
-
 #include "movement.h"
 
 typedef enum {
-    tomato_ready,
-    tomato_run,
-} tomato_mode;
+    TOMATO_READY = 0,
+    TOMATO_RUN,
+    TOMATO_PAUSE
+} tomato_mode_t;
 
 typedef enum {
-    tomato_break,
-    tomato_focus,
-} tomato_kind;
+    TOMATO_WARMUP = 0,
+    TOMATO_FOCUS,
+    TOMATO_REST
+} tomato_kind_t;
 
 typedef struct {
-    uint32_t target_ts;
-    uint32_t now_ts;
-    tomato_mode mode;
-    tomato_kind kind;
-    uint8_t done_count;
-    uint8_t watch_face_index;
+    uint32_t target_ts;          // Unix timestamp for scheduled completion
+    uint32_t remaining_seconds;   // Preserved remaining seconds while paused/ready
+    tomato_mode_t mode;          // READY, RUN, or PAUSE
+    tomato_kind_t kind;          // WARMUP, FOCUS, or REST
+    uint8_t done_count;          // Number of completed focus blocks (0 to 6)
+    uint8_t watch_face_index;    // Assigned index in watch_faces[]
+    bool is_active;              // True only when currently visible in foreground
 } tomato_state_t;
 
 void tomato_face_setup(uint8_t watch_face_index, void ** context_ptr);
