@@ -5,15 +5,21 @@
 #include <stdint.h>
 #include "movement.h"
 
+typedef enum {
+    CD_IDLE = 0,
+    CD_RUNNING,
+    CD_PAUSED
+} cd_mode_t;
+
 typedef struct {
-    uint32_t target_ts;          // Hardware RTC unix timestamp for countdown completion
-    uint32_t remaining_seconds;   // Exact seconds left (preserved when paused or setting)
-    uint8_t set_minutes;         // Base setting in minutes (0 to 60)
-    bool is_running;             // True when actively counting down
-    bool is_paused;              // True when paused midway
-    bool repeat_mode;            // True: Auto-repeats timer; False: Restarts to 0
-    bool is_active;              // True when currently visible on screen
+    uint32_t target_ts;          // Target Unix timestamp for current countdown
+    uint32_t remaining_seconds;  // Stored seconds when paused
+    uint8_t set_minutes;         // Selected interval in minutes (0 - 60)
+    uint8_t repeat_count;        // Number of completed repeats (0 - 99)
+    bool repeat_enabled;         // True: auto-repeat; False: reset to 0 on finish
+    cd_mode_t mode;              // IDLE, RUNNING, or PAUSED
     uint8_t watch_face_index;    // Assigned index in watch_faces[]
+    bool is_active;              // True when visible on screen
 } countdown_timer_state_t;
 
 void countdown_timer_face_setup(uint8_t watch_face_index, void ** context_ptr);
