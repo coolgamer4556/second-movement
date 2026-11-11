@@ -4,8 +4,8 @@
 #include "watch.h"
 #include "watch_utility.h"
 
-static void countdown_schedule(countdown_timer_state_t *state) {
-    state->target_ts = movement_get_utc_timestamp() + state->remaining_seconds;
+static void cd_schedule_target(countdown_timer_state_t *state, uint32_t seconds) {
+    state->target_ts = movement_get_utc_timestamp() + seconds;
     watch_date_time_t target_dt = watch_utility_date_time_from_unix_time(state->target_ts, 0);
     movement_schedule_background_task_for_face(state->watch_face_index, target_dt);
     if (state->is_active) {
@@ -13,69 +13,58 @@ static void countdown_schedule(countdown_timer_state_t *state) {
     }
 }
 
-static void countdown_reset(countdown_timer_state_t *state) {
-    state->is_running = false;
-    state->is_paused = false;
+static void cd_full_reset(countdown_timer_state_t *state) {
+    state->mode = CD_IDLE;
     state->set_minutes = 0;
     state->remaining_seconds = 0;
+    state->repeat_count = 0;
     movement_cancel_background_task_for_face(state->watch_face_index);
     if (state->is_active) {
         watch_clear_indicator(WATCH_INDICATOR_BELL);
     }
 }
 
-static void countdown_finish(countdown_timer_state_t *state) {
-    // Play the classic Casio double pip chime
+static void cd_handle_expiration(countdown_timer_state_t *state) {
+    // Classic Casio double pip chime
     movement_play_signal();
 
-    if (state->repeat_mode && state->set_minutes > 0) {
-        // Auto-repeat: Reload set minutes and keep counting down
-        state->remaining_seconds = state->set_minutes * 60;
-        countdown_schedule(state);
+    if (state->repeat_enabled && state->set_minutes > 0) {
+        // Auto-repeat path: increment repeat counter and chain next run
+        if (state->repeat_count < 99) {
+            state->repeat_count++;
+        }
+        cd_schedule_target(state, state->set_minutes * 60);
     } else {
-        // Single run: Reset to 0 idle state
-        countdown_reset(state);
+        // Single-run path: reset back to 0
+        cd_full_reset(state);
     }
 }
 
-static void countdown_draw(countdown_timer_state_t *state) {
+static void cd_draw(countdown_timer_state_t *state) {
     if (!state->is_active) return;
 
     char buf[16];
+    uint32_t remaining;
 
-    // Show Repeat status in the top complication: "RP" (Repeat) or "1X" (Single run)
-    if (state->repeat_mode) {
-        watch_display_text(WATCH_POSITION_TOP_RIGHT, "RP");
-        watch_set_indicator(WATCH_INDICATOR_LAP);
-    } else {
-        watch_display_text(WATCH_POSITION_TOP_RIGHT, "1X");
-        watch_clear_indicator(WATCH_INDICATOR_LAP);
-    }
-
-    if (state->is_running) {
-        // RUNNING DISPLAY (Inverse/Active Countdown mode):
-        // Shows remaining Minutes and Seconds counting down: [ MM SS 00 ]
+    if (state->mode == CD_RUNNING) {
         uint32_t now = movement_get_utc_timestamp();
-        uint32_t rem = (state->target_ts > now) ? (state->target_ts - now) : 0;
-        div_t d = div(rem, 60);
-        sprintf(buf, "%02d%02d  ", d.quot, d.rem);
-        watch_set_indicator(WATCH_INDICATOR_BELL);
-    } else if (state->is_paused) {
-        // PAUSED DISPLAY: Frozen remaining Minutes and Seconds
-        div_t d = div(state->remaining_seconds, 60);
-        sprintf(buf, "%02d%02dPA", d.quot, d.rem);
-        watch_clear_indicator(WATCH_INDICATOR_BELL);
+        remaining = (state->target_ts > now) ? (state->target_ts - now) : 0;
+    } else if (state->mode == CD_PAUSED) {
+        remaining = state->remaining_seconds;
     } else {
-        // IDLE / SETTING DISPLAY:
-        // Shows preset minutes clearly: "CD  XX 00" or " 0" when idle
-        if (state->set_minutes == 0) {
-            sprintf(buf, "   0  ");
-        } else {
-            sprintf(buf, "%2d00  ", state->set_minutes);
-        }
-        watch_clear_indicator(WATCH_INDICATOR_BELL);
+        // IDLE: Show selected setting minutes
+        remaining = state->set_minutes * 60;
     }
 
+    div_t result = div(remaining, 60);
+    uint8_t min = (uint8_t)result.quot;
+    uint8_t sec = (uint8_t)result.rem;
+
+    // Top Right complication: shows "rP" if Repeat is active, "CD" otherwise
+    watch_display_text(WATCH_POSITION_TOP_RIGHT, state->repeat_enabled ? "rP" : "CD");
+
+    // Bottom row: MM:SS and Repeat Tally (e.g., " 5:00  0")
+    sprintf(buf, "%2d%02d%2d", min, sec, state->repeat_count);
     watch_display_text(WATCH_POSITION_BOTTOM, buf);
 }
 
@@ -84,13 +73,13 @@ void countdown_timer_face_setup(uint8_t watch_face_index, void ** context_ptr) {
         *context_ptr = malloc(sizeof(countdown_timer_state_t));
         memset(*context_ptr, 0, sizeof(countdown_timer_state_t));
         countdown_timer_state_t *state = (countdown_timer_state_t *)*context_ptr;
+        state->mode = CD_IDLE;
         state->set_minutes = 0;
         state->remaining_seconds = 0;
-        state->is_running = false;
-        state->is_paused = false;
-        state->repeat_mode = false;
-        state->is_active = false;
+        state->repeat_count = 0;
+        state->repeat_enabled = false;
         state->watch_face_index = watch_face_index;
+        state->is_active = false;
     }
 }
 
@@ -98,9 +87,14 @@ void countdown_timer_face_activate(void *context) {
     countdown_timer_state_t *state = (countdown_timer_state_t *)context;
     state->is_active = true;
 
+    if (state->mode == CD_RUNNING) {
+        watch_set_indicator(WATCH_INDICATOR_BELL);
+    } else {
+        watch_clear_indicator(WATCH_INDICATOR_BELL);
+    }
+
     watch_set_colon();
-    watch_display_text_with_fallback(WATCH_POSITION_TOP, "TIMER", "CD");
-    countdown_draw(state);
+    watch_display_text_with_fallback(WATCH_POSITION_TOP, "COUNTDN", "CD");
 }
 
 bool countdown_timer_face_loop(movement_event_t event, void *context) {
@@ -108,88 +102,88 @@ bool countdown_timer_face_loop(movement_event_t event, void *context) {
 
     switch (event.event_type) {
         case EVENT_ACTIVATE:
-            countdown_draw(state);
+            cd_draw(state);
             break;
 
         case EVENT_TICK:
-            if (state->is_running) {
+            if (state->mode == CD_RUNNING) {
                 uint32_t now = movement_get_utc_timestamp();
                 if (now >= state->target_ts) {
-                    countdown_finish(state);
+                    cd_handle_expiration(state);
                 }
             }
-            countdown_draw(state);
+            cd_draw(state);
             break;
 
         case EVENT_LIGHT_BUTTON_UP:
-            // Short press LIGHT: Increment minutes (1-60)
-            if (!state->is_running) {
-                state->is_paused = false;
-                state->set_minutes++;
-                if (state->set_minutes > 60) {
-                    state->set_minutes = 1; // loops back
-                }
+            // Short press LIGHT:
+            if (state->mode == CD_IDLE || state->mode == CD_PAUSED) {
+                // Increment minutes: 1 -> 60 -> 0
+                state->set_minutes = (state->set_minutes + 1) % 61;
                 state->remaining_seconds = state->set_minutes * 60;
-                countdown_draw(state);
+            } else if (state->mode == CD_RUNNING) {
+                // While running, short press toggles Repeat mode on the fly
+                state->repeat_enabled = !state->repeat_enabled;
             }
+            cd_draw(state);
             break;
 
         case EVENT_LIGHT_LONG_PRESS:
-            // Long press LIGHT: Turn on Backlight LED
+            // Long press LIGHT: Turn on backlight without affecting settings
             movement_illuminate_led();
             break;
 
         case EVENT_ALARM_BUTTON_UP:
-            // Short press ALARM: Confirm / Start / Pause / Resume
-            if (state->is_running) {
+            // Short press ALARM:
+            if (state->mode == CD_IDLE) {
+                if (state->set_minutes == 0) {
+                    // At 0 minutes, toggle Repeat mode
+                    state->repeat_enabled = !state->repeat_enabled;
+                } else {
+                    // Start countdown
+                    state->mode = CD_RUNNING;
+                    state->remaining_seconds = state->set_minutes * 60;
+                    cd_schedule_target(state, state->remaining_seconds);
+                }
+            } else if (state->mode == CD_RUNNING) {
                 // Pause countdown
-                state->is_running = false;
-                state->is_paused = true;
+                state->mode = CD_PAUSED;
                 uint32_t now = movement_get_utc_timestamp();
                 state->remaining_seconds = (state->target_ts > now) ? (state->target_ts - now) : 0;
                 movement_cancel_background_task_for_face(state->watch_face_index);
-            } else if (state->is_paused) {
+                watch_clear_indicator(WATCH_INDICATOR_BELL);
+            } else if (state->mode == CD_PAUSED) {
                 // Resume countdown
-                state->is_running = true;
-                state->is_paused = false;
-                countdown_schedule(state);
-            } else {
-                // In Ready/Idle state
-                if (state->set_minutes > 0) {
-                    // Start countdown
-                    state->is_running = true;
-                    state->remaining_seconds = state->set_minutes * 60;
-                    countdown_schedule(state);
-                } else {
-                    // If at 0, pressing ALARM toggles Repeat Mode ON / OFF!
-                    state->repeat_mode = !state->repeat_mode;
+                if (state->remaining_seconds > 0) {
+                    state->mode = CD_RUNNING;
+                    cd_schedule_target(state, state->remaining_seconds);
                 }
             }
-            countdown_draw(state);
+            cd_draw(state);
             break;
 
         case EVENT_ALARM_LONG_PRESS:
-            // Long press ALARM: Reset back to 0
-            countdown_reset(state);
-            countdown_draw(state);
+            // Long press ALARM: Full reset back to 0
+            cd_full_reset(state);
+            cd_draw(state);
             break;
 
         case EVENT_BACKGROUND_TASK:
-            // RTC alarm woke up watch in sleep or from another face
-            if (state->is_running) {
+            // RTC wake-up while in background/sleep
+            if (state->mode == CD_RUNNING) {
                 uint32_t now = movement_get_utc_timestamp();
                 if (now >= state->target_ts) {
-                    countdown_finish(state);
+                    cd_handle_expiration(state);
                 }
             }
             if (state->is_active) {
-                countdown_draw(state);
+                cd_draw(state);
             }
             break;
 
         case EVENT_TIMEOUT:
-            // Inactivity timeout (60s): Return to clock face if stopped
-            if (!state->is_running) {
+            // Return to main clock if left paused or idle for 60s
+            if (state->mode != CD_RUNNING) {
                 movement_move_to_face(0);
             }
             break;
