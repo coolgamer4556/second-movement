@@ -2,6 +2,7 @@
 #define MOVEMENT_CONFIG_H_
 
 #include "movement_faces.h"
+#include "countdown_timer_face.h"
 
 // 1. Declare active watch faces
 const watch_face_t watch_faces[] = {
@@ -9,12 +10,13 @@ const watch_face_t watch_faces[] = {
     tomato_face,            // Index 1 (Primary)
     countdown_timer_face,   // Index 2 (Primary)
     set_time_face,          // Index 3 (Secondary)
+    alarm_face,             // Index 4 (Secondary)
 };
 
 #define MOVEMENT_NUM_FACES (sizeof(watch_faces) / sizeof(watch_face_t))
 
-// Isolates set_time_face to long-press MODE only
-#define MOVEMENT_SECONDARY_FACE_INDEX (MOVEMENT_NUM_FACES - 1)
+// 2. Isolates the last 2 faces (set_time_face & alarm_face) behind a long press of MODE
+#define MOVEMENT_SECONDARY_FACE_INDEX (MOVEMENT_NUM_FACES - 2)
 
 /* Sound & Buzzer Defaults */
 #define SIGNAL_TUNE_DEFAULT
@@ -28,14 +30,7 @@ const watch_face_t watch_faces[] = {
 #define MOVEMENT_DEFAULT_RED_COLOR 0x0
 #define MOVEMENT_DEFAULT_GREEN_COLOR 0xF
 #define MOVEMENT_DEFAULT_BLUE_COLOR 0x0
-#define MOVEMENT_DEFAULT_LED_DURATION 2  
-/* Valid values for Default_LED_Duration:
- * 0: No LED
- * 1: 1 second (Default)
- * 2: 3 seconds
- * 3: 5 seconds
- */
-#define MOVEMENT_DEFAULT_LED_DURATION 2
+#define MOVEMENT_DEFAULT_LED_DURATION 2  // 3-second backlight duration
 
 #define MOVEMENT_DEFAULT_TIMEOUT_INTERVAL 0
 #define MOVEMENT_DEFAULT_LOW_ENERGY_INTERVAL 2
