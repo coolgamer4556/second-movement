@@ -60,8 +60,14 @@ static void cd_draw(countdown_timer_state_t *state) {
     uint8_t min = (uint8_t)result.quot;
     uint8_t sec = (uint8_t)result.rem;
 
-    // Top Right complication: shows "rP" if Repeat is active, "CD" otherwise
-    watch_display_text(WATCH_POSITION_TOP_RIGHT, state->repeat_enabled ? "rP" : "CD");
+    // Top row display:
+    // "CUT  S" when Repeat is OFF (Single run)
+    // "CUT RP" when Repeat is ON (Auto-repeat)
+    if (state->repeat_enabled) {
+        watch_display_text_with_fallback(WATCH_POSITION_TOP, "CUT RP", "RP");
+    } else {
+        watch_display_text_with_fallback(WATCH_POSITION_TOP, "CUT  S", " S");
+    }
 
     // Bottom row: MM:SS and Repeat Tally (e.g., " 5:00  0")
     sprintf(buf, "%2d%02d%2d", min, sec, state->repeat_count);
@@ -94,7 +100,6 @@ void countdown_timer_face_activate(void *context) {
     }
 
     watch_set_colon();
-    watch_display_text_with_fallback(WATCH_POSITION_TOP, "COUNTDN", "CD");
 }
 
 bool countdown_timer_face_loop(movement_event_t event, void *context) {
@@ -122,14 +127,14 @@ bool countdown_timer_face_loop(movement_event_t event, void *context) {
                 state->set_minutes = (state->set_minutes + 1) % 61;
                 state->remaining_seconds = state->set_minutes * 60;
             } else if (state->mode == CD_RUNNING) {
-                // While running, short press toggles Repeat mode on the fly
+                // While running, toggle Repeat mode on the fly
                 state->repeat_enabled = !state->repeat_enabled;
             }
             cd_draw(state);
             break;
 
         case EVENT_LIGHT_LONG_PRESS:
-            // Long press LIGHT: Turn on backlight without affecting settings
+            // Long press LIGHT: Illuminate backlight
             movement_illuminate_led();
             break;
 
