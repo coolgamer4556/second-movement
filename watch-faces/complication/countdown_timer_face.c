@@ -25,8 +25,8 @@ static void cd_full_reset(countdown_timer_state_t *state) {
 }
 
 static void cd_handle_expiration(countdown_timer_state_t *state) {
-    // Classic Casio double pip chime
-    movement_play_signal();
+    // Classic 4-pair Casio alarm: beep-beep, beep-beep, beep-beep, beep-beep
+    movement_play_alarm();
 
     if (state->repeat_enabled && state->set_minutes > 0) {
         // Auto-repeat path: increment repeat counter and chain next run
