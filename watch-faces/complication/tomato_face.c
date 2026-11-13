@@ -142,23 +142,18 @@ static void tomato_draw(tomato_state_t *state) {
     uint8_t min = (uint8_t)result.quot;
     uint8_t sec = (uint8_t)result.rem;
 
-    const char *kind_str;
+    // Use full 14-segment top display so 'R' displays with a true diagonal uppercase leg!
     switch (state->kind) {
         case TOMATO_WARMUP:
-            kind_str = "WU";
+            watch_display_text_with_fallback(WATCH_POSITION_TOP, "TOM WU", "WU");
             break;
         case TOMATO_FOCUS:
-            kind_str = "FC";
+            watch_display_text_with_fallback(WATCH_POSITION_TOP, "TOM FC", "FC");
             break;
         case TOMATO_REST:
-            kind_str = "RS";
-            break;
-        default:
-            kind_str = "  ";
+            watch_display_text_with_fallback(WATCH_POSITION_TOP, "TOM RS", "RS");
             break;
     }
-
-    watch_display_text(WATCH_POSITION_TOP_RIGHT, (char *)kind_str);
 
     // Format: MM:SS and Completed Count (e.g., "2500 0")
     sprintf(buf, "%2d%02d%2d", min, sec, state->done_count);
@@ -190,7 +185,6 @@ void tomato_face_activate(void *context) {
     }
 
     watch_set_colon();
-    watch_display_text_with_fallback(WATCH_POSITION_TOP, "TOMATO", "TO");
 }
 
 bool tomato_face_loop(movement_event_t event, void *context) {
