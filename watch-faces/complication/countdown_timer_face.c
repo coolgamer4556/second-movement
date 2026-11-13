@@ -25,8 +25,8 @@ static void cd_full_reset(countdown_timer_state_t *state) {
 }
 
 static void cd_handle_expiration(countdown_timer_state_t *state) {
-    // Classic 4-pair Casio alarm: beep-beep, beep-beep, beep-beep, beep-beep
-    movement_play_alarm();
+    // Plays the classic alarm beep exactly 3 times:
+    movement_play_alarm_beeps(3, BUZZER_NOTE_C8);
 
     if (state->repeat_enabled && state->set_minutes > 0) {
         // Auto-repeat path: increment repeat counter and chain next run
