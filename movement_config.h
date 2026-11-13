@@ -30,7 +30,13 @@ const watch_face_t watch_faces[] = {
 #define MOVEMENT_DEFAULT_RED_COLOR 0x0
 #define MOVEMENT_DEFAULT_GREEN_COLOR 0xF
 #define MOVEMENT_DEFAULT_BLUE_COLOR 0x0
-#define MOVEMENT_DEFAULT_LED_DURATION 2  // 3-second backlight duration
+#define MOVEMENT_DEFAULT_LED_DURATION 2  
+/* Valid Default_LED_Duration:
+ * 0: No LED
+ * 1: 1 second (Default)
+ * 2: 3 seconds
+ * 3: 5 seconds
+ */
 
 #define MOVEMENT_DEFAULT_TIMEOUT_INTERVAL 0
 #define MOVEMENT_DEFAULT_LOW_ENERGY_INTERVAL 2
