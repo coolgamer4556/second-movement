@@ -45,6 +45,7 @@ typedef struct {
     tomato_mode_t mode;          // READY, RUN, or PAUSE
     tomato_kind_t kind;          // WARMUP, FOCUS, or REST
     uint8_t done_count;          // Number of completed focus blocks (0 to 6)
+    uint8_t skip_arm_ticks;      // Countdown window for double-press LIGHT to skip
     uint8_t watch_face_index;    // Assigned index in watch_faces[]
     bool is_active;              // True only when currently visible in foreground
 } tomato_state_t;
