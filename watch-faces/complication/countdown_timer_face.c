@@ -158,10 +158,8 @@ bool countdown_timer_face_loop(movement_event_t event, void *context) {
                 state->set_minutes = (state->set_minutes + 1) % 61;
                 state->remaining_seconds = state->set_minutes * 60;
             } else {
-                // While running/paused: add repeat if not already enabled
-                if (!state->repeat_enabled) {
-                    state->repeat_enabled = true;
-                }
+                // While running/paused: toggle between Single (CUT  S) and Repeat (CUT RP)
+                state->repeat_enabled = !state->repeat_enabled;
             }
             cd_draw(state);
             break;
