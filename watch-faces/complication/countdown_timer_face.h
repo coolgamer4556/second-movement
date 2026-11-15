@@ -16,6 +16,7 @@ typedef struct {
     uint32_t remaining_seconds;  // Stored seconds when paused
     uint8_t set_minutes;         // Selected interval in minutes (0 - 60)
     uint8_t repeat_count;        // Number of completed repeats (0 - 99)
+    uint8_t light_press_ticks;   // Remaining 4 Hz ticks for LIGHT double-press detection
     bool repeat_enabled;         // True: auto-repeat; False: reset to 0 on finish
     cd_mode_t mode;              // IDLE, RUNNING, or PAUSED
     uint8_t watch_face_index;    // Assigned index in watch_faces[]
