@@ -28,10 +28,11 @@
 #include "watch.h"
 #include "watch_utility.h"
 
-#define WARMUP_SECONDS  (5  * 60)
-#define FOCUS_SECONDS   (25 * 60)
-#define REST_SECONDS    (7  * 60)
-#define TOTAL_SESSIONS  6
+#define WARMUP_SECONDS     (5  * 60)
+#define FOCUS_SECONDS      (25 * 60)
+#define REST_SECONDS       (7  * 60)
+#define TOTAL_SESSIONS     6
+#define SKIP_CONFIRM_TICKS 3
 
 static void tomato_schedule_target(tomato_state_t *state, uint32_t seconds) {
     state->target_ts = movement_get_utc_timestamp() + seconds;
@@ -47,6 +48,7 @@ static void tomato_full_reset(tomato_state_t *state) {
     state->kind = TOMATO_WARMUP;
     state->remaining_seconds = WARMUP_SECONDS;
     state->done_count = 0;
+    state->skip_arm_ticks = 0;
     movement_cancel_background_task_for_face(state->watch_face_index);
     if (state->is_active) {
         watch_clear_indicator(WATCH_INDICATOR_BELL);
@@ -54,6 +56,8 @@ static void tomato_full_reset(tomato_state_t *state) {
 }
 
 static void tomato_advance_interval(tomato_state_t *state) {
+    state->skip_arm_ticks = 0;
+
     switch (state->kind) {
         case TOMATO_WARMUP:
             // Step 1 -> Step 2: Warm-up ends, first Focus session begins
@@ -169,6 +173,7 @@ void tomato_face_setup(uint8_t watch_face_index, void ** context_ptr) {
         state->kind = TOMATO_WARMUP;
         state->remaining_seconds = WARMUP_SECONDS;
         state->done_count = 0;
+        state->skip_arm_ticks = 0;
         state->watch_face_index = watch_face_index;
         state->is_active = false;
     }
@@ -177,6 +182,7 @@ void tomato_face_setup(uint8_t watch_face_index, void ** context_ptr) {
 void tomato_face_activate(void *context) {
     tomato_state_t *state = (tomato_state_t *)context;
     state->is_active = true;
+    state->skip_arm_ticks = 0;
 
     if (state->mode == TOMATO_RUN) {
         watch_set_indicator(WATCH_INDICATOR_BELL);
@@ -196,6 +202,9 @@ bool tomato_face_loop(movement_event_t event, void *context) {
             break;
 
         case EVENT_TICK:
+            if (state->skip_arm_ticks > 0) {
+                state->skip_arm_ticks--;
+            }
             if (state->mode == TOMATO_RUN) {
                 uint32_t now = movement_get_utc_timestamp();
                 if (now >= state->target_ts) {
@@ -206,6 +215,7 @@ bool tomato_face_loop(movement_event_t event, void *context) {
             break;
 
         case EVENT_ALARM_BUTTON_UP:
+            state->skip_arm_ticks = 0;
             // Short Press: Toggle Start -> Pause -> Resume
             switch (state->mode) {
                 case TOMATO_READY:
@@ -236,12 +246,18 @@ bool tomato_face_loop(movement_event_t event, void *context) {
             break;
 
         case EVENT_LIGHT_BUTTON_UP:
-            // Short Press: Skip ahead to next interval
-            tomato_skip(state);
-            tomato_draw(state);
+            // Require 2 consecutive short presses to skip to next interval
+            if (state->skip_arm_ticks > 0) {
+                state->skip_arm_ticks = 0;
+                tomato_skip(state);
+                tomato_draw(state);
+            } else {
+                state->skip_arm_ticks = SKIP_CONFIRM_TICKS;
+            }
             break;
 
         case EVENT_LIGHT_LONG_PRESS:
+            state->skip_arm_ticks = 0;
             // Long Press: Illuminate backlight
             movement_illuminate_led();
             break;
@@ -277,4 +293,5 @@ bool tomato_face_loop(movement_event_t event, void *context) {
 void tomato_face_resign(void *context) {
     tomato_state_t *state = (tomato_state_t *)context;
     state->is_active = false;
+    state->skip_arm_ticks = 0;
 }
