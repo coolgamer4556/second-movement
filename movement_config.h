@@ -11,12 +11,13 @@ const watch_face_t watch_faces[] = {
     countdown_timer_face,   // Index 2 (Primary)
     set_time_face,          // Index 3 (Secondary)
     alarm_face,             // Index 4 (Secondary)
+    settings_face,          // Index 5 (Secondary)
 };
 
 #define MOVEMENT_NUM_FACES (sizeof(watch_faces) / sizeof(watch_face_t))
 
-// 2. Isolates the last 2 faces (set_time_face & alarm_face) behind a long press of MODE
-#define MOVEMENT_SECONDARY_FACE_INDEX (MOVEMENT_NUM_FACES - 2)
+// Isolates the last 3 faces (set_time_face, alarm_face, settings_face) behind long-press MODE
+#define MOVEMENT_SECONDARY_FACE_INDEX (MOVEMENT_NUM_FACES - 3)
 
 /* Sound & Buzzer Defaults */
 #define SIGNAL_TUNE_DEFAULT
