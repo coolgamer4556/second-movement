@@ -18,6 +18,7 @@ static void cd_full_reset(countdown_timer_state_t *state) {
     state->set_minutes = 0;
     state->remaining_seconds = 0;
     state->repeat_count = 0;
+    state->repeat_enabled = false;
     movement_cancel_background_task_for_face(state->watch_face_index);
     if (state->is_active) {
         watch_clear_indicator(WATCH_INDICATOR_BELL);
@@ -121,31 +122,9 @@ bool countdown_timer_face_loop(movement_event_t event, void *context) {
             break;
 
         case EVENT_LIGHT_BUTTON_UP:
-            // Short press LIGHT:
-            if (state->mode == CD_IDLE || state->mode == CD_PAUSED) {
-                // Increment minutes: 1 -> 60 -> 0
-                state->set_minutes = (state->set_minutes + 1) % 61;
-                state->remaining_seconds = state->set_minutes * 60;
-            } else if (state->mode == CD_RUNNING) {
-                // While running, toggle Repeat mode on the fly
-                state->repeat_enabled = !state->repeat_enabled;
-            }
-            cd_draw(state);
-            break;
-
-        case EVENT_LIGHT_LONG_PRESS:
-            // Long press LIGHT: Illuminate backlight
-            movement_illuminate_led();
-            break;
-
-        case EVENT_ALARM_BUTTON_UP:
-            // Short press ALARM:
+            // Short press LIGHT: Start / Pause / Resume
             if (state->mode == CD_IDLE) {
-                if (state->set_minutes == 0) {
-                    // At 0 minutes, toggle Repeat mode
-                    state->repeat_enabled = !state->repeat_enabled;
-                } else {
-                    // Start countdown
+                if (state->set_minutes > 0) {
                     state->mode = CD_RUNNING;
                     state->remaining_seconds = state->set_minutes * 60;
                     cd_schedule_target(state, state->remaining_seconds);
@@ -167,9 +146,35 @@ bool countdown_timer_face_loop(movement_event_t event, void *context) {
             cd_draw(state);
             break;
 
+        case EVENT_LIGHT_LONG_PRESS:
+            // Long press LIGHT: Illuminate backlight
+            movement_illuminate_led();
+            break;
+
+        case EVENT_ALARM_BUTTON_UP:
+            // Short press ALARM (bottom-right):
+            if (state->mode == CD_IDLE) {
+                // Count up minutes: 0 -> 1 -> ... -> 60 -> 0
+                state->set_minutes = (state->set_minutes + 1) % 61;
+                state->remaining_seconds = state->set_minutes * 60;
+            } else {
+                // While running/paused: add repeat if not already enabled
+                if (!state->repeat_enabled) {
+                    state->repeat_enabled = true;
+                }
+            }
+            cd_draw(state);
+            break;
+
         case EVENT_ALARM_LONG_PRESS:
-            // Long press ALARM: Full reset back to 0
-            cd_full_reset(state);
+            // Long press ALARM (bottom-right):
+            if (state->mode == CD_IDLE && state->set_minutes == 0) {
+                // At 0 in default mode, toggle Repeat display ("CUT RP" / "CUT  S")
+                state->repeat_enabled = !state->repeat_enabled;
+            } else {
+                // Otherwise, full reset back to default (0:00, no repeat)
+                cd_full_reset(state);
+            }
             cd_draw(state);
             break;
 
