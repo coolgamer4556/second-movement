@@ -4,6 +4,15 @@
 #include "watch.h"
 #include "watch_utility.h"
 
+static void cd_clear_light_double_press(countdown_timer_state_t *state) {
+    if (state->light_press_ticks > 0) {
+        state->light_press_ticks = 0;
+        if (state->is_active) {
+            movement_request_tick_frequency(1);
+        }
+    }
+}
+
 static void cd_schedule_target(countdown_timer_state_t *state, uint32_t seconds) {
     state->target_ts = movement_get_utc_timestamp() + seconds;
     watch_date_time_t target_dt = watch_utility_date_time_from_unix_time(state->target_ts, 0);
@@ -14,6 +23,7 @@ static void cd_schedule_target(countdown_timer_state_t *state, uint32_t seconds)
 }
 
 static void cd_full_reset(countdown_timer_state_t *state) {
+    cd_clear_light_double_press(state);
     state->mode = CD_IDLE;
     state->set_minutes = 0;
     state->remaining_seconds = 0;
@@ -84,6 +94,7 @@ void countdown_timer_face_setup(uint8_t watch_face_index, void ** context_ptr) {
         state->set_minutes = 0;
         state->remaining_seconds = 0;
         state->repeat_count = 0;
+        state->light_press_ticks = 0;
         state->repeat_enabled = false;
         state->watch_face_index = watch_face_index;
         state->is_active = false;
@@ -93,6 +104,7 @@ void countdown_timer_face_setup(uint8_t watch_face_index, void ** context_ptr) {
 void countdown_timer_face_activate(void *context) {
     countdown_timer_state_t *state = (countdown_timer_state_t *)context;
     state->is_active = true;
+    state->light_press_ticks = 0;
 
     if (state->mode == CD_RUNNING) {
         watch_set_indicator(WATCH_INDICATOR_BELL);
@@ -112,6 +124,12 @@ bool countdown_timer_face_loop(movement_event_t event, void *context) {
             break;
 
         case EVENT_TICK:
+            if (state->light_press_ticks > 0) {
+                state->light_press_ticks--;
+                if (state->light_press_ticks == 0) {
+                    movement_request_tick_frequency(1);
+                }
+            }
             if (state->mode == CD_RUNNING) {
                 uint32_t now = movement_get_utc_timestamp();
                 if (now >= state->target_ts) {
@@ -122,25 +140,32 @@ bool countdown_timer_face_loop(movement_event_t event, void *context) {
             break;
 
         case EVENT_LIGHT_BUTTON_UP:
-            // Short press LIGHT: Start / Pause / Resume
             if (state->mode == CD_IDLE) {
+                // Single short press LIGHT in IDLE: Start countdown
+                cd_clear_light_double_press(state);
                 if (state->set_minutes > 0) {
                     state->mode = CD_RUNNING;
                     state->remaining_seconds = state->set_minutes * 60;
                     cd_schedule_target(state, state->remaining_seconds);
                 }
-            } else if (state->mode == CD_RUNNING) {
-                // Pause countdown
-                state->mode = CD_PAUSED;
-                uint32_t now = movement_get_utc_timestamp();
-                state->remaining_seconds = (state->target_ts > now) ? (state->target_ts - now) : 0;
-                movement_cancel_background_task_for_face(state->watch_face_index);
-                watch_clear_indicator(WATCH_INDICATOR_BELL);
-            } else if (state->mode == CD_PAUSED) {
-                // Resume countdown
-                if (state->remaining_seconds > 0) {
-                    state->mode = CD_RUNNING;
-                    cd_schedule_target(state, state->remaining_seconds);
+            } else if (state->light_press_ticks == 0) {
+                // First short press LIGHT while RUNNING/PAUSED: open ~500-750ms window for 2nd press
+                state->light_press_ticks = 3;
+                movement_request_tick_frequency(4);
+            } else {
+                // Second short press LIGHT within window: Pause / Resume
+                cd_clear_light_double_press(state);
+                if (state->mode == CD_RUNNING) {
+                    state->mode = CD_PAUSED;
+                    uint32_t now = movement_get_utc_timestamp();
+                    state->remaining_seconds = (state->target_ts > now) ? (state->target_ts - now) : 0;
+                    movement_cancel_background_task_for_face(state->watch_face_index);
+                    watch_clear_indicator(WATCH_INDICATOR_BELL);
+                } else if (state->mode == CD_PAUSED) {
+                    if (state->remaining_seconds > 0) {
+                        state->mode = CD_RUNNING;
+                        cd_schedule_target(state, state->remaining_seconds);
+                    }
                 }
             }
             cd_draw(state);
@@ -148,10 +173,12 @@ bool countdown_timer_face_loop(movement_event_t event, void *context) {
 
         case EVENT_LIGHT_LONG_PRESS:
             // Long press LIGHT: Illuminate backlight
+            cd_clear_light_double_press(state);
             movement_illuminate_led();
             break;
 
         case EVENT_ALARM_BUTTON_UP:
+            cd_clear_light_double_press(state);
             // Short press ALARM (bottom-right):
             if (state->mode == CD_IDLE) {
                 // Count up minutes: 0 -> 1 -> ... -> 60 -> 0
@@ -165,6 +192,7 @@ bool countdown_timer_face_loop(movement_event_t event, void *context) {
             break;
 
         case EVENT_ALARM_LONG_PRESS:
+            cd_clear_light_double_press(state);
             // Long press ALARM (bottom-right):
             if (state->mode == CD_IDLE && state->set_minutes == 0) {
                 // At 0 in default mode, toggle Repeat display ("CUT RP" / "CUT  S")
@@ -206,5 +234,6 @@ bool countdown_timer_face_loop(movement_event_t event, void *context) {
 
 void countdown_timer_face_resign(void *context) {
     countdown_timer_state_t *state = (countdown_timer_state_t *)context;
+    cd_clear_light_double_press(state);
     state->is_active = false;
 }
